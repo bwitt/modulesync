@@ -82,5 +82,30 @@ describe ModuleSync do
 
       described_class.manage_module(puppet_module, [], {})
     end
+
+    context 'with a post_update_script' do
+      before do
+        options = described_class.config_defaults.merge(message: 'Update', post_update_script: 'bin/post-update')
+        described_class.instance_variable_set(:@options, options)
+        allow(puppet_module).to receive(:working_directory).and_return('/tmp/puppet-test')
+      end
+
+      it 'runs the script in the module before committing' do
+        expect(described_class).to receive(:system)
+          .with(Hash, File.expand_path('./bin/post-update'), unsetenv_others: true, chdir: '/tmp/puppet-test')
+          .and_return(true).ordered
+        expect(repository).to receive(:submit_changes).ordered
+
+        described_class.manage_module(puppet_module, [], {})
+      end
+
+      it 'fails the module when the script fails' do
+        allow(described_class).to receive(:system).and_return(false)
+        expect(repository).not_to receive(:submit_changes)
+
+        expect { described_class.manage_module(puppet_module, [], {}) }
+          .to raise_error(ModuleSync::Error, /Post-update script failed/)
+      end
+    end
   end
 end

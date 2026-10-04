@@ -203,6 +203,8 @@ module ModuleSync
           repo.add(file)
         end
       end
+      # Also commit tracked files modified by the post-update script
+      repo.lib.send(:command, 'add', '--update') if options[:post_update_script]
       begin
         if options[:pre_commit_script]
           script = "#{File.dirname(__FILE__, 3)}/contrib/#{options[:pre_commit_script]}"

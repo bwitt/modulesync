@@ -143,6 +143,11 @@ module ModuleSync
       option :pre_commit_script,
              desc: 'A script to be run before committing',
              default: CLI.defaults[:pre_commit_script]
+      option :post_update_script,
+             desc: 'A script run in each module after syncing files. ' \
+                   'Changes it makes to tracked files are included in the commit. ' \
+                   'Relative paths are resolved from the configs directory.',
+             default: CLI.defaults[:post_update_script]
       option :fail_on_warnings,
              type: :boolean,
              aliases: '-F',

@@ -142,6 +142,7 @@ module ModuleSync
 
     files_to_manage = settings.managed_files(module_files)
     files_to_manage.each { |filename| manage_file(puppet_module, filename, settings, options) }
+    run_post_update_script(puppet_module, options[:post_update_script]) if options[:post_update_script]
 
     if options[:noop]
       puts "Using no-op. Files in '#{puppet_module.given_name}' may be changed but will not be committed."
@@ -157,6 +158,19 @@ module ModuleSync
       end
       options[:pr] && (pushed || puppet_module.pull_request_branch_ready?) && puppet_module.open_pull_request
     end
+  end
+
+  def self.run_post_update_script(puppet_module, script)
+    script = File.expand_path(config_path(script, options))
+    $stdout.puts "Running '#{script}' in '#{puppet_module.given_name}'" if options[:verbose]
+    return if system(command_env, script, unsetenv_others: true, chdir: puppet_module.working_directory)
+
+    raise ModuleSync::Error, "Post-update script failed ('#{script}': #{$CHILD_STATUS})"
+  end
+
+  # Remove bundler-related env vars to allow the subprocess to run `bundle` unless explicitly whitelisted.
+  def self.command_env(env_whitelist = [])
+    ENV.reject { |k, _v| k.match?(/(^BUNDLE|^SOURCE_DATE_EPOCH$|^GEM_|RUBY)/) && !env_whitelist.include?(k) }
   end
 
   def self.config_path(file, options)
@@ -227,10 +241,8 @@ module ModuleSync
       local_script = File.expand_path command_args[0]
       command_args[0] = local_script if File.exist?(local_script)
 
-      # Remove bundler-related env vars to allow the subprocess to run `bundle` unless explicitly whitelisted.
-      command_env = ENV.reject { |k, _v| k.match?(/(^BUNDLE|^SOURCE_DATE_EPOCH$|^GEM_|RUBY)/) && !env_whitelist.include?(k) }
-
-      result = system command_env, *command_args, unsetenv_others: true, chdir: puppet_module.working_directory
+      result = system command_env(env_whitelist), *command_args, unsetenv_others: true,
+                                                                 chdir: puppet_module.working_directory
       unless result
         message = "Command execution failed ('#{@options[:command_args].join ' '}': #{$CHILD_STATUS})"
         raise Thor::Error, message if @options[:fail_fast]

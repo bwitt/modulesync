@@ -265,6 +265,71 @@ Feature: update
       source 'https://somehost.com'
       """
 
+  Scenario: Committing changes made by a post-update script when no template changed
+    Given a basic setup with a puppet module "puppet-test" from "fakenamespace"
+    And the puppet module "puppet-test" from "fakenamespace" has a file named "metadata.json" with:
+      """
+      {}
+      """
+    And the global option 'post_update_script' sets to 'bin/post-update'
+    And an executable named "bin/post-update" with:
+      """
+      #!/bin/sh
+      echo '{"fixed": true}' > metadata.json
+      """
+    And a directory named "moduleroot"
+    When I successfully run `msync update -m "Update" -r test`
+    Then the puppet module "puppet-test" from "fakenamespace" should have 1 commit made by "Aruba" in branch "test"
+    And the puppet module "puppet-test" from "fakenamespace" should have a branch "test" with a file named "metadata.json" which contains:
+      """
+      "fixed": true
+      """
+
+  Scenario: Committing template and post-update script changes together
+    Given a basic setup with a puppet module "puppet-test" from "fakenamespace"
+    And the puppet module "puppet-test" from "fakenamespace" has a file named "Gemfile" with:
+      """
+      source 'https://example.com'
+      """
+    And the global option 'post_update_script' sets to 'bin/post-update'
+    And an executable named "bin/post-update" with:
+      """
+      #!/bin/sh
+      printf "\ngem 'rake'\n" >> Gemfile
+      """
+    And a file named "config_defaults.yml" with:
+      """
+      ---
+      Gemfile:
+        gem_source: https://somehost.com
+      """
+    And a directory named "moduleroot"
+    And a file named "moduleroot/Gemfile.erb" with:
+      """
+      source '<%= @configs['gem_source'] %>'
+      """
+    When I successfully run `msync update -m "Update Gemfile" -r test`
+    Then the puppet module "puppet-test" from "fakenamespace" should have 1 commit made by "Aruba" in branch "test"
+    And the puppet module "puppet-test" from "fakenamespace" should have a branch "test" with a file named "Gemfile" which contains:
+      """
+      source 'https://somehost.com'
+      gem 'rake'
+      """
+
+  Scenario: Failing post-update script
+    Given a basic setup with a puppet module "puppet-test" from "fakenamespace"
+    And the global option 'post_update_script' sets to 'bin/post-update'
+    And an executable named "bin/post-update" with:
+      """
+      #!/bin/sh
+      exit 1
+      """
+    And a directory named "moduleroot"
+    When I run `msync update -m "Update" -r test`
+    Then the exit status should be 1
+    And the stderr should contain "Post-update script failed"
+    And the puppet module "puppet-test" from "fakenamespace" should have no commits made by "Aruba"
+
   Scenario: Setting an existing file to unmanaged
     Given a basic setup with a puppet module "puppet-test" from "fakenamespace"
     And the puppet module "puppet-test" from "fakenamespace" has a file named "Gemfile" with:

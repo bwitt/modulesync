@@ -286,6 +286,7 @@ Available parameters for modulesync.yml
 * `remote_branch` : Remote branch to push to (Default: Same value as branch)
 * `message` : Commit message to apply to updated modules.
 * `pre_commit_script` : A script to be run before commiting (e.g. 'contrib/myfooscript.sh')
+* `post_update_script` : A script run in each module after syncing files, e.g. to run autofixers (e.g. 'bin/post-update'). Relative paths are resolved from the configs directory. Changes it makes to tracked files go into the same commit, so a commit (and PR with `--pr`) is made even when no template changed. A non-zero exit fails the module.
 * `pr_title` : The title to use when submitting PRs/MRs to GitHub or GitLab.
 * `pr_labels` : A list of labels to assign PRs/MRs created on GitHub or GitLab.
 
