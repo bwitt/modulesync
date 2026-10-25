@@ -265,6 +265,52 @@ Feature: update
       source 'https://somehost.com'
       """
 
+  Scenario: Committing the changes made by a pre-commit script
+    Given a basic setup with a puppet module "puppet-test" from "fakenamespace"
+    And the puppet module "puppet-test" from "fakenamespace" has a file named "REFERENCE.md" with:
+      """
+      outdated
+      """
+    And a directory named "moduleroot"
+    And a file named "moduleroot/Gemfile.erb" with:
+      """
+      source 'https://somehost.com'
+      """
+    And an executable named "bin/autofix" with:
+      """
+      #!/bin/sh
+      test -z "$BUNDLE_GEMFILE" || exit 1
+      test "$PWD" = "$1" || exit 1
+      echo regenerated > REFERENCE.md
+      """
+    When I successfully run `msync update -m "Update Gemfile" --pre-commit-script bin/autofix`
+    Then the puppet module "puppet-test" from "fakenamespace" should have only 1 commit made by "Aruba"
+    And the puppet module "puppet-test" from "fakenamespace" should have a branch "master" with a file named "Gemfile" which contains:
+      """
+      source 'https://somehost.com'
+      """
+    And the puppet module "puppet-test" from "fakenamespace" should have a branch "master" with a file named "REFERENCE.md" which contains:
+      """
+      regenerated
+      """
+
+  Scenario: Failing pre-commit script
+    Given a basic setup with a puppet module "puppet-test" from "fakenamespace"
+    And a directory named "moduleroot"
+    And a file named "moduleroot/Gemfile.erb" with:
+      """
+      source 'https://somehost.com'
+      """
+    And an executable named "bin/autofix" with:
+      """
+      #!/bin/sh
+      exit 1
+      """
+    When I run `msync update -m "Update Gemfile" --pre-commit-script bin/autofix`
+    Then the exit status should be 1
+    And the stderr should contain "Pre-commit script 'bin/autofix' failed"
+    And the puppet module "puppet-test" from "fakenamespace" should have no commits made by "Aruba"
+
   Scenario: Setting an existing file to unmanaged
     Given a basic setup with a puppet module "puppet-test" from "fakenamespace"
     And the puppet module "puppet-test" from "fakenamespace" has a file named "Gemfile" with:

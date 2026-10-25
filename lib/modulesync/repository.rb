@@ -196,18 +196,8 @@ module ModuleSync
     def submit_changes(files, options)
       message = options[:message]
       branch = checkout_branch(options[:branch])
-      files.each do |file|
-        if repo.status.deleted.include?(file)
-          repo.remove(file)
-        elsif File.exist? File.join(@directory, file)
-          repo.add(file)
-        end
-      end
+      stage_changes(files, options)
       begin
-        if options[:pre_commit_script]
-          script = "#{File.dirname(__FILE__, 3)}/contrib/#{options[:pre_commit_script]}"
-          system(script, @directory)
-        end
         if repo.status.changed.empty? && repo.status.added.empty? && repo.status.deleted.empty?
           puts "There were no changes in '#{@directory}'. Not committing."
           return false unless @rebased
@@ -228,6 +218,35 @@ module ModuleSync
       end
 
       true
+    end
+
+    def stage_changes(files, options)
+      if options[:pre_commit_script]
+        run_pre_commit_script(options[:pre_commit_script], options[:configs])
+        # The script may change files beyond the managed ones, so stage the whole working tree
+        repo.add(all: true)
+        return
+      end
+
+      files.each do |file|
+        if repo.status.deleted.include?(file)
+          repo.remove(file)
+        elsif File.exist? File.join(@directory, file)
+          repo.add(file)
+        end
+      end
+    end
+
+    # The script is looked up relative to the configs directory, then in the contrib directory of modulesync.
+    def run_pre_commit_script(script, configs)
+      candidates = [File.expand_path(script, configs || '.'), "#{File.dirname(__FILE__, 3)}/contrib/#{script}"]
+      path = candidates.find { |candidate| File.exist?(candidate) }
+      raise ModuleSync::Error, "Pre-commit script '#{script}' not found" unless path
+
+      directory = File.expand_path(@directory)
+      return if system(Util.command_env, path, directory, unsetenv_others: true, chdir: directory)
+
+      raise ModuleSync::Error, "Pre-commit script '#{script}' failed (#{$CHILD_STATUS})"
     end
 
     def push(branch:, remote_branch:, remote_name: 'origin')

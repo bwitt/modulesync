@@ -29,5 +29,11 @@ module ModuleSync
         []
       end
     end
+
+    # Copy of the current environment without the Bundler/Ruby variables of msync itself,
+    # so a subprocess can run `bundle` against the Gemfile of a module.
+    def self.command_env(whitelist = [])
+      ENV.reject { |k, _v| k.match?(/(^BUNDLE|^SOURCE_DATE_EPOCH$|^GEM_|RUBY)/) && !whitelist.include?(k) }
+    end
   end
 end

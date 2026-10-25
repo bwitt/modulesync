@@ -285,7 +285,7 @@ Available parameters for modulesync.yml
 * `branch` : Branch to push to (Default: 'master')
 * `remote_branch` : Remote branch to push to (Default: Same value as branch)
 * `message` : Commit message to apply to updated modules.
-* `pre_commit_script` : A script to be run before commiting (e.g. 'contrib/myfooscript.sh')
+* `pre_commit_script` : A script to be run in each module before committing, e.g. to run autocorrecting linters. It receives the module directory as its only argument and runs from it, without the Bundler environment of msync. The path is resolved relative to the configs directory, falling back to the `contrib/` directory of ModuleSync. When set, every change in the module working tree is committed, not only the managed files, and a non-zero exit status fails the update of that module.
 * `pr_title` : The title to use when submitting PRs/MRs to GitHub or GitLab.
 * `pr_labels` : A list of labels to assign PRs/MRs created on GitHub or GitLab.
 
